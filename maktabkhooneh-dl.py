@@ -1,7 +1,6 @@
 #!/bin/python3
 import argparse
 from http.cookiejar import MozillaCookieJar
-from importlib.resources import path
 import logging
 import os
 import platform
@@ -41,8 +40,12 @@ def main():
     else:
         logging.warning(f'Course title not found')
 
-    lecture_page_link_elements = bs.select('.chapter__unit')
-    lecture_page_urls = [(element.get('title'), element.get('href')) for element in lecture_page_link_elements]
+    lecture_page_link_elements = bs.select('.border-b-hawkes-blue')
+    lecture_page_urls = []
+    for element in lecture_page_link_elements:
+        href = element.get('href')
+        if href:
+            lecture_page_urls.append((href.split('/')[-1], href))
     number_of_lectures = len(lecture_page_urls)
     logging.info(f"Found {number_of_lectures} lectures.")
 
@@ -52,18 +55,18 @@ def main():
         if start == '':
             start = 1
         else:
-            start = int(start) - 1 # Because we start from zero
+            start = int(start) - 1  # Because we start from zero
         if end == '':
             end = number_of_lectures
         else:
-            end = int(end) # We still start from zero but our ending is exclusive
+            end = int(end)  # We still start from zero but our ending is exclusive
         download_range = range(int(start), int(end))
     else:
-        download_range = range(number_of_lectures) # Download all
+        download_range = range(number_of_lectures)  # Download all
     folder_index = 0
     last_folder = ''
 
-    # open a file for storing download links if necessary 
+    # open a file for storing download links if necessary
     if args.store_urls:
         urls_file = open(args.store_urls, 'w')
 
@@ -77,16 +80,16 @@ def main():
         title = sanitize_for_filename(title)
         final_extension = "mp3" if args.mp3 else "mp4"
         intermediate_file = f"{title}.mp4.incomplete"
-        final_file = f"{(i+1):03d}-{title}.{final_extension}"
+        final_file = f"{(i + 1):03d}-{title}.{final_extension}"
 
         # Bail if lecture is already downloaded
         if os.path.exists(final_file):
-            logging.info(f"Lecture {i+1} exists. Skipping...")
+            logging.info(f"Lecture {i + 1} exists. Skipping...")
             continue
 
         # Fetch lecture page
         print()
-        logging.info(f"Loading lecture page ({i+1}/{number_of_lectures})...")
+        logging.info(f"Loading lecture page ({i + 1}/{number_of_lectures})...")
         lecture_page = requests.get(make_absolute(url), cookies=cookies)
 
         # Find download links
@@ -95,9 +98,9 @@ def main():
         section = bs.select('.breadcrumb__item a')
 
         # specifying folder
-        folder = '' # no special folder
+        folder = ''  # no special folder
         if len(section) > 1:
-            folder = section[len(section)-2].get_text(strip=True)
+            folder = section[len(section) - 2].get_text(strip=True)
         elif len(section) > 0:
             folder = section[0].get_text(strip=True)
 
@@ -112,14 +115,14 @@ def main():
             final_file = numbered_folder + os.sep + final_file
 
         if os.path.exists(final_file):
-            logging.info(f"Lecture {i+1} exists. Skipping...")
+            logging.info(f"Lecture {i + 1} exists. Skipping...")
             continue
 
         all_download_links = bs.select('.unit-content--download a')
         if len(all_download_links) > 0:
-            HQ_download_link = all_download_links[0].get('href') # HQ comes first in page layout
+            HQ_download_link = all_download_links[0].get('href')  # HQ comes first in page layout
             if len(all_download_links) > 1:
-                LQ_download_link = all_download_links[1].get('href') # LG comes second in page layout
+                LQ_download_link = all_download_links[1].get('href')  # LG comes second in page layout
                 download_link = LQ_download_link if (args.low_quality or args.mp3) else HQ_download_link
             else:
                 download_link = HQ_download_link
@@ -127,9 +130,9 @@ def main():
             # lets find the download urls from js video player ;)
             all_download_links = bs.select('.js-player__source')
             if len(all_download_links) > 0:
-                HQ_download_link = all_download_links[0].get('src') # HQ comes first in page layout
+                HQ_download_link = all_download_links[0].get('src')  # HQ comes first in page layout
                 if len(all_download_links) > 1:
-                    LQ_download_link = all_download_links[1].get('src') # LG comes second in page layout
+                    LQ_download_link = all_download_links[1].get('src')  # LG comes second in page layout
                     download_link = LQ_download_link if (args.low_quality or args.mp3) else HQ_download_link
                 else:
                     download_link = HQ_download_link
@@ -139,7 +142,7 @@ def main():
                 continue
 
         if args.store_urls:
-            urls_file.write(make_absolute(download_link)+"\n")
+            urls_file.write(make_absolute(download_link) + "\n")
 
         # Download
         if not args.no_download:
@@ -153,9 +156,9 @@ def main():
             else:
                 # Convert
                 logging.info("Converting to mp3...")
-                subprocess.check_output(["ffmpeg", "-i", intermediate_file, final_file]) # TODO: Make non-blocking
+                subprocess.check_output(["ffmpeg", "-i", intermediate_file, final_file])  # TODO: Make non-blocking
                 os.remove(intermediate_file)
-        
+
         logging.info("Finished lecture.")
 
     if args.store_urls:
@@ -167,7 +170,7 @@ def parse_args():
     argument_parser = argparse.ArgumentParser(
         prog="maktabkhooneh-dl",
         description="This is a batch download utility for maktabkhooneh.org",
-        epilog=\
+        epilog= \
             "Don't be cruel to their servers!\n"
             "Only download what you really want to watch.\n"
             "\n"
@@ -176,11 +179,14 @@ def parse_args():
     )
     argument_parser.add_argument("-L", "--low-quality", action="store_true")
     argument_parser.add_argument("--mp3", action="store_true")
-    argument_parser.add_argument("--range", default=None, help="Only download a subset. Specify as `start:end` (inclusive) e.g. `--range=1:5`")
+    argument_parser.add_argument("--range", default=None,
+                                 help="Only download a subset. Specify as `start:end` (inclusive) e.g. `--range=1:5`")
     argument_parser.add_argument("cookies_file")
     argument_parser.add_argument("course_url")
-    argument_parser.add_argument("--store-urls",help="Store download links in a file e.g. `--store-urls ./urls.txt --no-download`")
-    argument_parser.add_argument("--no-download", action="store_true", help="Don't download anything, useful when you only want to store download links")
+    argument_parser.add_argument("--store-urls",
+                                 help="Store download links in a file e.g. `--store-urls ./urls.txt --no-download`")
+    argument_parser.add_argument("--no-download", action="store_true",
+                                 help="Don't download anything, useful when you only want to store download links")
     return argument_parser.parse_args()
 
 
@@ -208,11 +214,11 @@ def download(url: str, fname: str):
         resp = requests.get(url, stream=True)
         total = int(resp.headers.get('content-length', 0))
         with open(fname, 'wb') as file, tqdm(
-            desc="        Progress",
-            total=total,
-            unit='iB',
-            unit_scale=True,
-            unit_divisor=1024,
+                desc="        Progress",
+                total=total,
+                unit='iB',
+                unit_scale=True,
+                unit_divisor=1024,
         ) as bar:
             for data in resp.iter_content(chunk_size=1024):
                 size = file.write(data)
@@ -223,7 +229,6 @@ def download(url: str, fname: str):
         else:
             os.remove(fname)
             logging.warning("downloaded file corrupted. retrying...")
-    
 
 
 def exception_handler(_type, value, _tb):
