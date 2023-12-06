@@ -1,4 +1,4 @@
-#!/bin/python3
+# !/bin/python3
 import argparse
 from http.cookiejar import MozillaCookieJar
 import logging
@@ -7,11 +7,13 @@ import platform
 import re
 import subprocess
 import sys
+import json
 
 from bs4 import BeautifulSoup
 import coloredlogs
 import requests
 from tqdm import tqdm
+from urllib.parse import urlparse
 
 
 def main():
@@ -27,7 +29,14 @@ def main():
     logging.info("Loading course page...")
     course_page = requests.get(args.course_url, cookies=cookies)
 
-    # Parse course page and find links to lecture pages
+    # Load course api
+    parsed_url = urlparse(args.course_url)
+    path_parts = parsed_url.path.strip('/').split('/')
+    last_url_part = path_parts[-1]
+    api_url = f"https://maktabkhooneh.org/api/v1/courses/{last_url_part}/chapters/"
+    course_api = requests.get(api_url, cookies=cookies)
+
+    # # Parse course page and find links to lecture pages
     logging.info("Scraping lecture pages...")
     bs = BeautifulSoup(course_page.content, 'html.parser')
 
@@ -40,12 +49,7 @@ def main():
     else:
         logging.warning(f'Course title not found')
 
-    lecture_page_link_elements = bs.select('.border-b-hawkes-blue')
-    lecture_page_urls = []
-    for element in lecture_page_link_elements:
-        href = element.get('href')
-        if href:
-            lecture_page_urls.append((href.split('/')[-1], href))
+    lecture_page_urls = get_capture(course_api.content, last_url_part)
     number_of_lectures = len(lecture_page_urls)
     logging.info(f"Found {number_of_lectures} lectures.")
 
@@ -233,6 +237,17 @@ def download(url: str, fname: str):
 
 def exception_handler(_type, value, _tb):
     logging.exception("Uncaught exception: {0}".format(str(value)))
+
+
+def get_capture(content, title_slug):
+    parsed_obj = json.loads(content)
+    result = []
+    for session in parsed_obj:
+
+        for unit in session['unit_set']:
+            course_path = (session['title'], f"/course/{title_slug}/{session['slug']}-ch{session['id']}/{unit['slug']}")
+            result.append(course_path)
+    return result
 
 
 if __name__ == "__main__":
