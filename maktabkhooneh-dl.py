@@ -245,7 +245,7 @@ def get_capture(content, title_slug):
     for session in parsed_obj:
 
         for unit in session['unit_set']:
-            course_path = (session['title'], f"/course/{title_slug}/{session['slug']}-ch{session['id']}/{unit['slug']}")
+            course_path = (unit['title'], f"/course/{title_slug}/{session['slug']}-ch{session['id']}/{unit['slug']}")
             result.append(course_path)
     return result
 
