@@ -1,0 +1,5 @@
+# Created by .ignore support plugin (hsz.mobi)
+__pycache__/
+.venv
+.idea/
+cookies.txt
