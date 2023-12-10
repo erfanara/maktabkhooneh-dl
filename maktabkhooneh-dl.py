@@ -32,7 +32,7 @@ def main():
     # Load course api
     parsed_url = urlparse(args.course_url)
     path_parts = parsed_url.path.strip('/').split('/')
-    last_url_part = path_parts[-1]
+    last_url_part = path_parts[1]
     api_url = f"https://maktabkhooneh.org/api/v1/courses/{last_url_part}/chapters/"
     course_api = requests.get(api_url, cookies=cookies)
 
